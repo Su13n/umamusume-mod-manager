@@ -1,0 +1,1 @@
+# umamusume-mod-manager

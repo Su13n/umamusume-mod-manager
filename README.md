@@ -23,13 +23,13 @@ If you don't want to install the stuff below to use the script version you can d
 
 2. Double-click on _UMMM.exe_ to launch the mod manager.
 
-<img src="https://files.catbox.moe/whvynm.png" width="700"/>
+<img src="https://files.catbox.moe/866bh6.png" width="700"/>
 
 3. Click on `Activate` to activate your mod.
 
-<img src="https://files.catbox.moe/vt8wcj.png" width="700"/>
+<img src="https://files.catbox.moe/quakvz.png" width="700"/>
 
-<img src="https://files.catbox.moe/hb7oke.png" width="700"/>
+<img src="https://files.catbox.moe/hjjibz.png" width="700"/>
 
 4. Launch your game.
 

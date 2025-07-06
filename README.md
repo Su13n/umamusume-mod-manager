@@ -38,10 +38,15 @@ If you don't want to install the stuff below to use the script version you can d
 ### Buttons:
 
 `Preview`: If your mod has got a preview image (preview.jpg or preview.png) this button will open it with your default image viewer.
+
 `Refresh List`: If you renamed, moved or deleted your mods then use this button to refresh the mods list to display the changes.
+
 `Activate/Deactivate`: Deactivate or activate your mods.
+
 `Clear`: Clear the search bar with one click.
+
 `Search bar`: Useful to filter your mods list by mod name.
+
 `Open Folder`: Open the mod folder on a new window.
 
 

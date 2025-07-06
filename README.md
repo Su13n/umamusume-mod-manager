@@ -67,4 +67,4 @@ Double click on _install_requirements.bat_ to install the required dependencies 
 
 ## How to compile with PyInstaller (Portable executable version):
 
-Double-click on _COMPILE.bat_ to generate the .exe version.
+Double-click on _COMPILE.bat_ to generate the .exe version, then go to the folder "dist" to find the executable.

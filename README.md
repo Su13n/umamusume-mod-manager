@@ -35,7 +35,7 @@ If you don't want to install the stuff below to use the script version you can d
 
 
 
-### Buttons:
+## Buttons:
 
 `Preview`: If your mod has got a preview image (preview.jpg or preview.png) this button will open it with your default image viewer.
 

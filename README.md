@@ -3,13 +3,10 @@
 A tool to manage [Umamusume: Pretty Derby](https://umamusume.com/) mods.
 
 
-## Portable Version:
-If you don't want to install the stuff below to use the script version you can download this portable version ready for usage (not updated yet).
+## Portable Version (Win):
+If you don't want to or don't know how to run Python, you can download a compiled Windows executable from releases. Place it in a separate directory so it can create necessary files & folders.
 
-
-<p align="center">
-  👉<a href="https://www.mediafire.com/file/q3q58l1o8fb9ylk/UmamusumeModManager.7z/file"><strong>DOWNLOAD OUTDATED PORTABLE VERSION HERE</strong></a>👈
-</p>
+Only tested on Win11.
 
 
 

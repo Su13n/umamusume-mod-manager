@@ -4,7 +4,7 @@ A tool to manage [Umamusume: Pretty Derby](https://umamusume.com/) mods.
 
 
 ## Portable Version:
-If you don't want to install the stuff below to use the script version you can download this portable version ready for usage.
+If you don't want to install the stuff below to use the script version you can download this portable version ready for usage (not updated yet).
 
 
 <p align="center">

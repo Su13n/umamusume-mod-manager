@@ -1,0 +1,4 @@
+mods/
+.mod_manager/
+mods_folder_settings.json
+dat_settings.json

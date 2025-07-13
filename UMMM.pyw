@@ -3,6 +3,8 @@ import sys
 import json
 import subprocess
 import shutil
+import hashlib
+from pathlib import Path
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton,
     QHBoxLayout, QLabel, QLineEdit,
@@ -13,14 +15,30 @@ from PyQt6.QtGui import QIcon, QColor, QPalette
 from PyQt6.QtCore import Qt
 
 class ModManager(QWidget):
+    # --- Class-level constants ---
+    SCRIPT_DIR     = os.path.dirname(os.path.abspath(__file__))
+    STATE_DIR      = os.path.join(SCRIPT_DIR, ".mod_manager")
+    BACKUP_DIR     = os.path.join(STATE_DIR, "backups")
+    MODS_DIR       = os.path.join(SCRIPT_DIR, "mods")
+    MANIFEST_FILE  = os.path.join(STATE_DIR, "active_mods.json")
+    BACKUP_SUFFIX  = "_original"
+    CHUNK          = 1 << 16  # 64 KiB
+
     def __init__(self):
         super().__init__()
-        # --- Basic Setup ---
-        self.script_dir = os.path.dirname(os.path.abspath(__file__))
-        self.settings_file = os.path.join(self.script_dir, "mods_folder_settings.json")
+
+        # --- Ensure necessary folders exist ---
+        os.makedirs(self.MODS_DIR, exist_ok=True)
+        os.makedirs(self.STATE_DIR, exist_ok=True)
+        os.makedirs(self.BACKUP_DIR, exist_ok=True)
+
+         # --- Instance state ---
+        self.script_dir        = self.SCRIPT_DIR
+        self.backup_dir        = self.BACKUP_DIR
+        self.manifest_file     = self.MANIFEST_FILE
+
+        self.settings_file     = os.path.join(self.script_dir, "mods_folder_settings.json")
         self.dat_settings_file = os.path.join(self.script_dir, "dat_settings.json")
-        self.backup_dir = os.path.join(self.script_dir, "backup")
-        os.makedirs(self.backup_dir, exist_ok=True)
 
         self.setWindowTitle("Umamusume Mod Manager")
         self.setGeometry(100, 100, 800, 600)
@@ -328,100 +346,116 @@ class ModManager(QWidget):
         actions_layout.addStretch()
         
         self.table_widget.setCellWidget(row_position, 2, actions_widget)
+    
+    def file_sha256(self, path):
+        h = hashlib.sha256()
+        with open(path, "rb") as f:
+            while chunk := f.read(self.CHUNK):
+                h.update(chunk)
+        return h.hexdigest()
+
+    def load_manifest(self):
+        try:
+            with open(self.manifest_file) as f:
+                return json.load(f)
+        except FileNotFoundError:
+            return {}
+
+    def save_manifest(self, m):
+        with open(self.manifest_file, "w") as f:
+            json.dump(m, f, indent=2)
 
     def check_mod_status(self, mod_name):
-        """
-        Checks if a mod is active by comparing file sizes.
-        A mod is 'Active' if any of its files match the size of the corresponding file in the dat folder.
-        """
-        mods_folder = self.settings.get("mods_folder")
-        dat_folder = self.dat_settings.get("dat_folder")
+        manifest = self.load_manifest()
+        mods_dir = self.settings["mods_folder"]
+        dat_dir = self.dat_settings["dat_folder"]
+        mod_root = Path(mods_dir) / mod_name
 
-        if not all([mods_folder, dat_folder, os.path.isdir(mods_folder), os.path.isdir(dat_folder)]):
-            return "Unknown"
+        for src in mod_root.rglob("*"):
+            if src.is_dir() or src.name.lower().endswith((".jpg",".png")):
+                continue
+            rel = src.relative_to(mod_root).as_posix()
+            dst = Path(dat_dir) / rel
 
-        mod_path = os.path.join(mods_folder, mod_name)
-        
-        # Walk through all files in the specific mod's folder
-        for root, _, files in os.walk(mod_path):
-            if not files: continue # Skip empty directories
-            for file in files:
-                # Skip preview images
-                if file.lower() in ('preview.jpg', 'preview.png'):
-                    continue
-                
-                mod_file_path = os.path.join(root, file)
-                relative_path = os.path.relpath(mod_file_path, mod_path)
-                dat_file_path = os.path.join(dat_folder, relative_path)
+            meta = manifest.get(rel)
+            if not meta or meta["mod"] != mod_name or not dst.exists():
+                return "Inactive"
 
-                if os.path.exists(dat_file_path):
-                    try:
-                        # If mod file size matches the game file size, it's considered active
-                        if os.path.getsize(mod_file_path) == os.path.getsize(dat_file_path):
-                            return "Active"
-                    except OSError as e:
-                        print(f"Could not get size for {mod_file_path} or {dat_file_path}: {e}")
-                        return "Error"
-        
-        return "Inactive"
-    
-    def get_mod_file_map(self, mod_name):
-        """
-        Generates a dictionary mapping relative file paths to their full paths for a given mod.
-        Example: {'2R/file.dat': 'C:/.../mods/MyMod/2R/file.dat'}
-        """
-        file_map = {}
-        mods_folder = self.settings.get("mods_folder")
-        mod_path = os.path.join(mods_folder, mod_name)
+            st = dst.stat()
+            # fast path: size+mtime unchanged
+            if st.st_size == meta["size"] and st.st_mtime == meta["mtime"]:
+                continue
 
-        if not os.path.isdir(mod_path):
-            return file_map
+            # fallback: full hash compare (and update manifest)
+            h = self.file_sha256(dst)
+            if h != meta["hash"]:
+                return "Inactive"
+            # update stored metadata
+            meta["size"]  = st.st_size
+            meta["mtime"] = st.st_mtime
+            self.save_manifest(manifest)
 
-        for root, _, files in os.walk(mod_path):
-            for file in files:
-                # Skip preview images from the file map
-                if file.lower() in ('preview.jpg', 'preview.png'):
-                    continue
-                full_path = os.path.join(root, file)
-                relative_path = os.path.relpath(full_path, mod_path)
-                file_map[relative_path] = full_path
-        return file_map
+        return "Active"
 
-    def activate_mod(self, mod_name):
-        """Backs up original files and replaces them with modded files."""
-        dat_folder = self.dat_settings.get("dat_folder")
-        if not dat_folder or not os.path.isdir(dat_folder):
-            QMessageBox.warning(self, "Error", "The 'dat' folder path is not valid. Please set it correctly.")
-            return
 
-        mod_files = self.get_mod_file_map(mod_name)
-        if not mod_files:
-            QMessageBox.warning(self, "Error", f"Mod '{mod_name}' contains no files.")
-            return
+    def activate_mod(self, mod_name: str):
+        dat_dir   = self.dat_settings["dat_folder"]
+        mods_dir  = self.settings["mods_folder"]
+        manifest  = self.load_manifest()
+        mod_root  = Path(mods_dir) / mod_name
 
+        # Pre-scan for conflicts
+        conflicts = []
+        for src in mod_root.rglob("*"):
+            # Skip preview images from the file map
+            if src.is_dir() or src.name.lower() in ("preview.jpg", "preview.png"):
+                continue
+            rel = src.relative_to(mod_root).as_posix()
+            owner = manifest.get(rel, {}).get("mod")
+            if owner and owner != mod_name:
+                conflicts.append((owner, rel))
+        if conflicts:
+            msg = "\n".join(f"{p}  (already modified by {m})"
+                            for m, p in conflicts)
+            QMessageBox.warning(self, "Conflict detected",
+                                f"{mod_name} conflicts with:\n{msg}")
+            return                              # ← abort before any backup/copy
+
+        # No conflicts: proceed with backup + copy + manifest update
         try:
-            for rel_path, mod_file_path in mod_files.items():
-                original_file_path = os.path.join(dat_folder, rel_path)
-                backup_file_path = os.path.join(self.backup_dir, rel_path)
+            backup_root = Path(self.backup_dir) / f"{mod_name}{self.BACKUP_SUFFIX}"
+            for src in mod_root.rglob("*"):
+                if src.is_dir() or src.name.lower() in ("preview.jpg", "preview.png"):
+                    continue
+                rel = src.relative_to(mod_root).as_posix()
+                dst = Path(dat_dir) / rel
 
-                if os.path.exists(original_file_path):
-                    # Create backup directory and copy original file
-                    os.makedirs(os.path.dirname(backup_file_path), exist_ok=True)
-                    shutil.copy2(original_file_path, backup_file_path)
+                # backup original once
+                if dst.exists():
+                    bak = backup_root / rel
+                    bak.parent.mkdir(parents=True, exist_ok=True)
+                    if not bak.exists():
+                        shutil.copy2(dst, bak)
 
-                    # Copy modded file to dat folder
-                    shutil.copy2(mod_file_path, original_file_path)
-                else:
-                    print(f"Original file not found, skipping backup: {original_file_path}")
-                    # Still copy the mod file over
-                    os.makedirs(os.path.dirname(original_file_path), exist_ok=True)
-                    shutil.copy2(mod_file_path, original_file_path)
+                # copy mod file
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dst)
 
+                # record ownership & hash/size/mtime
+                sha   = self.file_sha256(dst)
+                st    = dst.stat()
+                manifest[rel] = {
+                    "mod":   mod_name,
+                    "hash":  sha,
+                    "size":  st.st_size,
+                    "mtime": st.st_mtime
+                }
 
-            QMessageBox.information(self, "Success", f"Mod '{mod_name}' activated successfully.")
+            self.save_manifest(manifest)
+            QMessageBox.information(self, "Success", f"Mod '{mod_name}' activated.")
+
         except Exception as e:
-            QMessageBox.critical(self, "Activation Failed", f"An error occurred: {e}")
-        
+                    QMessageBox.critical(self, "Activation Failed", f"An error occurred: {e}")
         # Store the current scroll position
         scrollbar = self.table_widget.verticalScrollBar()
         scroll_position = scrollbar.value()
@@ -431,35 +465,36 @@ class ModManager(QWidget):
         # Restore the scroll position
         scrollbar.setValue(scroll_position)
 
-    def deactivate_mod(self, mod_name):
-        """Restores original files from the backup folder."""
-        dat_folder = self.dat_settings.get("dat_folder")
-        if not dat_folder or not os.path.isdir(dat_folder):
-            QMessageBox.warning(self, "Error", "The 'dat' folder path is not valid. Please set it correctly.")
-            return
+    def deactivate_mod(self, mod_name: str):
+        dat_dir = self.dat_settings["dat_folder"]
+        backup_root = Path(self.backup_dir) / f"{mod_name}{self.BACKUP_SUFFIX}"
+        manifest = self.load_manifest()
 
-        mod_files = self.get_mod_file_map(mod_name)
-        if not mod_files:
-            # This case is unlikely if deactivating, but good to have
-            QMessageBox.warning(self, "Error", f"Could not find files for mod '{mod_name}' to deactivate.")
-            return
+        owned = [r for r, meta in manifest.items() if meta["mod"] == mod_name]
 
         try:
-            for rel_path in mod_files.keys():
-                backup_file_path = os.path.join(self.backup_dir, rel_path)
-                original_file_path = os.path.join(dat_folder, rel_path)
+            for rel in owned:
+                dst = Path(dat_dir) / rel
+                backup = backup_root / rel
 
-                if os.path.exists(backup_file_path):
-                    # Restore original file from backup
-                    shutil.copy2(backup_file_path, original_file_path)
-                    # Remove the backed-up file
-                    os.remove(backup_file_path)
-                else:
-                    print(f"Backup not found for {rel_path}. The original file cannot be restored.")
-            
-            # [MODIFIED] The empty directory cleanup loop has been removed to prevent conflicts.
+                if backup.exists():               # restore original game file
+                    shutil.copy2(backup, dst)
+                    backup.unlink()
+                else:                             # file added solely by this mod
+                    dst.unlink(missing_ok=True)
 
-            QMessageBox.information(self, "Success", f"Mod '{mod_name}' deactivated successfully.")
+                del manifest[rel]
+
+            # clean empty dirs inside backup tree
+            for p in sorted(backup_root.rglob("*"), reverse=True):
+                if p.is_dir():
+                    try:
+                        p.rmdir()
+                    except OSError:
+                        pass
+
+            self.save_manifest(manifest)
+            QMessageBox.information(self, "Success", f"Mod '{mod_name}' deactivated.")
         except Exception as e:
             QMessageBox.critical(self, "Deactivation Failed", f"An error occurred: {e}")
         

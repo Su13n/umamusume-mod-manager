@@ -9,7 +9,6 @@ If you don't want to or don't know how to run Python, you can download a compile
 Only tested on Win11.
 
 
-
 ## Usage: 
 
 1. Put your mods in the **"mods"** folder.
@@ -18,7 +17,7 @@ Only tested on Win11.
 
 <img src="https://files.catbox.moe/zkiu2s.png" width="500"/>
 
-2. Double-click on _UMMM.exe_ to launch the mod manager.
+2. Double-click on _UMM.exe_ to launch the mod manager.
 
 <img src="https://files.catbox.moe/866bh6.png" width="700"/>
 
@@ -29,7 +28,6 @@ Only tested on Win11.
 <img src="https://files.catbox.moe/hjjibz.png" width="700"/>
 
 4. Launch your game.
-
 
 
 ## Buttons:
@@ -47,21 +45,3 @@ Only tested on Win11.
 `Open Folder`: Open the mod folder on a new window.
 
 
-## Requirements to run the script version:
-
-Double click on _install_requirements.bat_ to install the required dependencies and Python 3.13.2.
-   
-   
- 
-## Script usage:
-
-1. Put your mods in the **"mods"** folder.
-2. Run *UMMM.pyw* with double-click.
-3. Activate the mods you want.
-4. Launch your game.
-
-
-
-## How to compile with PyInstaller (Portable executable version):
-
-Double-click on _COMPILE.bat_ to generate the .exe version, then go to the folder "dist" to find the executable.

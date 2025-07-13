@@ -8,7 +8,7 @@ If you don't want to install the stuff below to use the script version you can d
 
 
 <p align="center">
-  👉<a href="https://www.mediafire.com/file/q3q58l1o8fb9ylk/UmamusumeModManager.7z/file"><strong>DOWNLOAD PORTABLE VERSION HERE</strong></a>👈
+  👉<a href="https://www.mediafire.com/file/q3q58l1o8fb9ylk/UmamusumeModManager.7z/file"><strong>DOWNLOAD OUTDATED PORTABLE VERSION HERE</strong></a>👈
 </p>
 
 
